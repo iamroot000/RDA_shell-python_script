@@ -1,0 +1,125 @@
+#!/bin/sh
+# You may declare your common variable in the script below. 
+. /BASLSTSP/CDSelect_Script/sasprog/sasprog/scripts/basel.property 
+function logrc
+{
+ if [ -f $drv/$batchname".err" ]
+ then
+    cat $drv/$batchname".err"|grep 0
+    rcode=$?
+ fi
+
+ echo $step $rcode $dtx $bpsw $desc >> $drv/$batchname".log"
+
+ if [ $bpsw != 1 ]
+ then
+   if [ $rcode -gt 1 ]
+   then
+     echo  >> $drv/$batchname".log"
+     echo "Job Failed at "$step"." >> $drv/$batchname".log"
+     echo "Recovery Procedure:" >> $drv/$batchname".log"
+     if [ -f $rdrv/$batchname".rpm" ]
+     then
+        cat $rdrv/$batchname".rpm" >> $drv/$batchname".log"
+     else
+        echo "No Recovery Procedure." >> $drv/$batchname".log"
+     fi
+     exit $rcode
+   fi
+ fi
+ return $rcode
+}
+
+
+function step00
+{
+ step=step00
+ desc="Dummy Step"
+ dtx=`date +'%y%m%d'`"   "`date +'%H%M%S'`
+
+ echo date
+ rcode=$?
+ logrc
+}
+
+function step01
+{
+step=step01
+if [ "$rrstep" != "" ] && [ "$rrstep" != "$step" ]
+then
+echo $step skipped
+return 0
+fi
+desc="Create backup of dsn_table.sas7bdat"
+
+ cd /sasdata/${lev}/ADMIN
+ cp -p dsn_table.sas7bdat dsn_table_20200911.sas7bdat
+
+rcode=$?
+logrc
+}
+
+function step02
+{
+step=step02
+if [ "$rrstep" != "" ] && [ "$rrstep" != "$step" ]
+then
+echo $step skipped
+return 0
+fi
+desc="Run UPDATE_DSN_TABLE_TMS.sas"
+
+ $swcode $swuser -c "${dirlog} $exesas /sasprog/${lev}/upon_request/UPDATE_DSN_TABLE_TMS.sas"
+
+rcode=$?
+logrc
+}
+
+function step03
+{
+step=step03
+if [ "$rrstep" != "" ] && [ "$rrstep" != "$step" ]
+then
+echo $step skipped
+return 0
+fi
+desc="Delete ADHOC9"
+
+ cd /sasprog/scripts/adhoc
+ rm ADHOC9.sh
+
+rcode=$?
+logrc
+}
+
+
+#main script
+
+drv=/sasprog/joblog
+rdrv=/sasprog/${lev}/rdrv
+batchname=ADHOC9
+dtx=`date +'%y%m%d'`"   "`date +'%H%M%S'`
+dt=`date +'%y%m%d'`
+rrstep=""
+bpsw=0
+ut=U_ADHOC9.txt
+st=S_ADHOC9.txt
+if [ "$1" != "" ] && [ "$1" != "step00" ]
+then
+   echo Job Restarted at $1 $dtx >> $drv/$batchname".log"
+   rrstep=$1
+else
+   echo Job Started $dtx > $drv/$batchname".log"
+   rrstep=""
+fi
+
+step00
+step01
+step02
+step03
+
+exit $rcode
+
+#end of script
+
+

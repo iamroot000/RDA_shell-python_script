@@ -1,0 +1,120 @@
+#!/bin/sh
+# You may declare your common variable in the script below. 
+. /BASLSTSP/CDSelect_Script/sasprog/sasprog/scripts/basel.property 
+function logrc
+{
+ if [ -f $drv/$batchname".err" ]
+ then
+    cat $drv/$batchname".err"|grep 0
+    rcode=$?
+ fi
+
+ dtx=`date +'%y%m%d'`"   "`date +'%H%M%S'`
+ echo $step $rcode $dtx $bpsw $desc >> $drv/$batchname".log"
+ if [ $bpsw != 1 ]
+ then
+   if [ $rcode -gt 1 ]
+   then
+     echo  >> $drv/$batchname".log"
+     echo "Job Failed at "$step"." >> $drv/$batchname".log"
+     echo "Recovery Procedure:" >> $drv/$batchname".log"
+     if [ -f $rdrv/$batchname".rpm" ]
+     then
+        cat $rdrv/$batchname".rpm" >> $drv/$batchname".log"
+     else
+        echo "No Recovery Procedure." >> $drv/$batchname".log"
+     fi
+     exit $rcode
+   fi
+ fi
+ return $rcode
+}
+
+function step00
+{
+ step=step00
+ desc="Dummy Step"
+
+ echo date
+ rcode=$?
+ logrc
+}
+
+
+function step01
+{
+ step=step01
+ if [ "$rrstep" != "" ] && [ "$rrstep" != "$step" ]
+ then
+    echo $step skipped
+    return 0
+ fi
+ desc="Backup tables to patch"
+
+ cd /sasdds/${lev}
+ cp -p financial_account.sas7bdat financial_account_chng.sas7bdat loan_account.sas7bdat account_credit_risk_mitigant.sas7bdat specific_provision.sas7bdat credit_facility.sas7bdat /sasdata/${lev}/BACKUP/DDS
+ cd /sasdata/${lev}/ADMIN
+ cp -p cust_lookup3.sas7bdat /sasdata/${lev}/BACKUP/ADMIN
+ 
+ rcode=$?
+ logrc
+ }
+
+function step02
+{
+ step=step02
+ if [ "$rrstep" != "" ] && [ "$rrstep" != "$step" ]
+ then
+    echo $step skipped
+    return 0
+ fi
+ desc="Run DDS patch for IMEX"
+
+ ${dirlog} $exesas /sasprog/${lev}/upon_request/DDS_PATCH_IMEX.sas
+ 
+ rcode=$?
+ logrc
+ }
+
+function step03
+{
+ step=step03
+ if [ "$rrstep" != "" ] && [ "$rrstep" != "$step" ]
+ then
+    echo $step skipped
+    return 0
+ fi
+ desc="Delete ADHOC"
+
+ cd /sasprog/scripts/adhoc
+ rm -f ADHOC19.sh 
+
+ rcode=$?
+ logrc
+ }
+
+
+#main script
+
+drv=/sasprog/joblog
+rdrv=/sasprog/${lev}/rdrv
+batchname=ADHOC19
+dtx=`date +'%y%m%d'`"   "`date +'%H%M%S'`
+rrstep=""
+bpsw=0
+
+if [ "$1" != "" ] && [ "$1" != "step00" ]
+then
+   echo Job Restarted at $1 $dtx >> $drv/$batchname".log"
+   rrstep=$1
+else
+   echo Job Started $dtx > $drv/$batchname".log"
+   rrstep=""
+fi
+
+step00
+step01
+step02
+step03
+exit $rcode
+

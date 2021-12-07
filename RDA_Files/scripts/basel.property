@@ -1,0 +1,12 @@
+# ========================================================= #
+# Author: RDA + BASEL TECH                                  #
+# Date:   Nov 08, 2021                                      #
+# Description: This property file can be used to place      #
+#           common variables used by different scripts      #
+#           or variable specific environment                #
+# ========================================================= #
+lev="Lev1"
+swcode="su - "
+swuser="sasia"
+dirlog="cd /sasprog/sasjoblog ;"
+exesas="/sas9/SAS913/sas"
